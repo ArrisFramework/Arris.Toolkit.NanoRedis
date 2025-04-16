@@ -1,0 +1,14 @@
+# IDE
+/.idea
+
+# redis params for testing
+/config.php
+
+###> friendsofphp/php-cs-fixer ###
+/.php_cs
+/.php_cs.cache
+###< friendsofphp/php-cs-fixer ###
+
+/ci
+/.phpunit.result.cache
+/vendor/
