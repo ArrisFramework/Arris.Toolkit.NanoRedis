@@ -76,18 +76,10 @@ class RedisClient
     }
 
     /**
-     * @throws RedisException
-     */
-    public function setDatabase(int $database):Redis
-    {
-        return $this->client->select($database);
-    }
-
-    /**
      * @throws RedisClientException
      * @throws RedisException
      */
-    private function tryConnect(): void
+    public function tryConnect(): void
     {
         if (!$this->enabled) {
             return;
@@ -97,6 +89,7 @@ class RedisClient
             try {
                 $this->client->connect($this->host, $this->port);
                 $this->client->select($this->database);
+                $this->is_connected = true;
             } catch (RedisException $e) {
                 throw new RedisClientException($e->getMessage(), 2001);
             }
@@ -105,6 +98,24 @@ class RedisClient
                 throw new RedisClientException('Connection auth failed', 2002);
             }
         }
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function setDatabase(int $database):Redis
+    {
+        return $this->client->select($database);
+    }
+
+    public function connect(string $host = 'localhost', int $port = 6379, ?int $database = 0, bool $enabled = true)
+    {
+        $this->host = $host;
+        $this->port = $port;
+        $this->database = $database;
+        $this->enabled = $enabled;
+
+        $this->tryConnect();
     }
 
     /**
