@@ -15,7 +15,7 @@ class RedisClient
     /**
      * @var Redis
      */
-    private Redis $client;
+    public Redis $client;
 
     /**
      * @var string
@@ -33,11 +33,26 @@ class RedisClient
     private ?string $auth;
 
     /**
+     * @var int|null
+     */
+    private ?int $database;
+
+    /**
+     * @var bool
+     */
+    private bool $enabled = true;
+
+    /**
+     * @var bool
+     */
+    public bool $is_connected = false;
+
+    /**
      * RedisClient constructor.
      *
      * @throws RedisClientException|RedisException
      */
-    public function __construct(string $host = 'localhost', int $port = 6379, ?int $database = 0, ?string $auth = null)
+    public function __construct(string $host = 'localhost', int $port = 6379, ?int $database = 0, ?string $auth = null, bool $enabled = true)
     {
         // test extension
         // @codeCoverageIgnoreStart
@@ -49,12 +64,23 @@ class RedisClient
         $this->host = $host;
         $this->port = $port;
         $this->auth = $auth;
+        $this->database = $database;
+        $this->enabled = $enabled;
 
         // try to connect
         $this->client = new Redis();
-        if ($database) {
-            $this->client->select($database);
+        if ($this->database) {
+            $this->client->select($this->database);
         }
+        $this->is_connected = true;
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function setDatabase(int $database):Redis
+    {
+        return $this->client->select($database);
     }
 
     /**
@@ -63,12 +89,18 @@ class RedisClient
      */
     private function tryConnect(): void
     {
+        if (!$this->enabled) {
+            return;
+        }
+
         if (!$this->client->isConnected()) {
             try {
                 $this->client->connect($this->host, $this->port);
+                $this->client->select($this->database);
             } catch (RedisException $e) {
                 throw new RedisClientException($e->getMessage(), 2001);
             }
+
             if (null !== $this->auth && !$this->client->auth($this->auth)) {
                 throw new RedisClientException('Connection auth failed', 2002);
             }
@@ -85,6 +117,10 @@ class RedisClient
      */
     public function get(string $key, bool $isJson = true): mixed
     {
+        if (!$this->enabled) {
+            return false;
+        }
+
         $this->tryConnect();
 
         $r = $this->client->get($key);
@@ -107,22 +143,27 @@ class RedisClient
      * @param mixed $value
      * @param int|null $timeout
      *
+     * @return bool|Redis
+     *
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function set(string $key, mixed $value, ?int $timeout = null): void
+    public function set(string $key, mixed $value, ?int $timeout = null)
     {
+        if (!$this->enabled) {
+            return false;
+        }
+
         $this->tryConnect();
 
         if (is_array($value)) {
             $value = json_encode($value);
         }
 
-        if (null === $timeout) {
-            $this->client->set($key, $value);
-        } else {
-            $this->client->setex($key, $timeout, $value);
-        }
+        return  null === $timeout
+                ? $this->client->set($key, $value)
+                : $this->client->setex($key, $timeout, $value);
+
     }
 
     /**
@@ -131,6 +172,10 @@ class RedisClient
      */
     public function getLastError(): ?string
     {
+        if (!$this->enabled) {
+            return 'Not connected';
+        }
+
         $this->tryConnect();
 
         return $this->client->getLastError();
@@ -153,6 +198,10 @@ class RedisClient
      */
     public function delete(string $key): void
     {
+        if (!$this->enabled) {
+            return;
+        }
+
         $this->tryConnect();
 
         $iterator = null;
@@ -163,6 +212,7 @@ class RedisClient
                 $this->client->del($keys);
             }
         } while ($iterator !== 0);
+        return;
     }
 
     /**
@@ -171,6 +221,10 @@ class RedisClient
      */
     public function keys(string $key):array
     {
+        if (!$this->enabled) {
+            return [];
+        }
+
         $this->tryConnect();
         $found_keys = [];
 
@@ -193,8 +247,12 @@ class RedisClient
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function client(bool $try_connect = false): Redis
+    public function getClient(bool $try_connect = false): Redis
     {
+        if (!$this->enabled) {
+            return $this->client;
+        }
+
         if ($try_connect) {
             $this->tryConnect();
         }
