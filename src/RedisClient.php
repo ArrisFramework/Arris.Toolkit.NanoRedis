@@ -35,9 +35,9 @@ class RedisClient
     /**
      * RedisClient constructor.
      *
-     * @throws RedisClientException
+     * @throws RedisClientException|RedisException
      */
-    public function __construct(string $host = 'localhost', int $port = 6379, ?string $auth = null)
+    public function __construct(string $host = 'localhost', int $port = 6379, ?int $database = 0, ?string $auth = null)
     {
         // test extension
         // @codeCoverageIgnoreStart
@@ -52,6 +52,9 @@ class RedisClient
 
         // try to connect
         $this->client = new Redis();
+        if ($database) {
+            $this->client->select($database);
+        }
     }
 
     /**
@@ -180,5 +183,22 @@ class RedisClient
         } while ($iterator !== 0);
 
         return $found_keys;
+    }
+
+    /**
+     * return Redis client instance
+     *
+     * @param bool $try_connect
+     * @return Redis
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function client(bool $try_connect = false): Redis
+    {
+        if ($try_connect) {
+            $this->tryConnect();
+        }
+
+        return $this->client;
     }
 }

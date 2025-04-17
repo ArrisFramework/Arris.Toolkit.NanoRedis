@@ -20,11 +20,16 @@ class RedisClientTest extends TestCase
 
     public function setUp(): void
     {
-        if (!defined('REDIS_HOST') || !defined('REDIS_PORT') || !defined('REDIS_AUTH')) {
-            echo 'Missing constants REDIS_HOST, REDIS_PORT or REDIS_AUTH';
+        if (
+            !defined('REDIS_HOST') ||
+            !defined('REDIS_PORT') ||
+            !defined('REDIS_AUTH') ||
+            !defined('REDIS_DATABASE')
+        ) {
+            echo 'Missing constants REDIS_HOST, REDIS_PORT, REDIS_DATABASE or REDIS_AUTH';
             exit();
         }
-        $this->client = new RedisClient(REDIS_HOST, REDIS_PORT, REDIS_AUTH);
+        $this->client = new RedisClient(REDIS_HOST, REDIS_PORT, REDIS_DATABASE, REDIS_AUTH);
     }
 
     public function tearDown(): void
