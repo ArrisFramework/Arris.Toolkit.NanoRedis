@@ -67,12 +67,8 @@ class RedisClient
         $this->database = $database;
         $this->enabled = $enabled;
 
-        // try to connect
+        // set client
         $this->client = new Redis();
-        if ($this->database) {
-            $this->client->select($this->database);
-        }
-        $this->is_connected = true;
     }
 
     /**
