@@ -95,6 +95,22 @@ class RedisClientTest extends TestCase
         $this->client->delete('key_del*');
 
         self::assertFalse($this->client->get('key_delete', false));
+        self::assertCount(0, $this->client->keys("key_de*"));
+    }
+
+    /**
+     * @testdox Keys count test
+     * @return void
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function testKeysCount():void
+    {
+        $this->client->set('key_delete', 'test');
+        $this->client->set('key_delete2', 'test');
+        $this->client->set('key_delete3', 'test');
+
+        self::assertCount(3, $this->client->keys("key_de*"));
     }
 
     public function testGetLastError(): void

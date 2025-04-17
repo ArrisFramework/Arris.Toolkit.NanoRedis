@@ -200,14 +200,19 @@ class RedisClient
     }
 
     /**
-     * delete Redis key.
-     * @throws RedisException|RedisClientException
+     * Delete redis key(s) by mask.
+     *
+     * @param string $key
+     * @return int
+     * @throws RedisClientException
+     * @throws RedisException
      */
-    public function delete(string $key): void
+    public function delete(string $key): int
     {
         if (!$this->enabled) {
-            return;
+            return 0;
         }
+        $deletedCount = 0;
 
         $this->tryConnect();
 
@@ -216,10 +221,13 @@ class RedisClient
             // SCAN возвращает часть ключей и новый курсор
             $keys = $this->client->scan($iterator, $key, 100);
             if (!empty($keys)) {
-                $this->client->del($keys);
+                $deleted = $this->client->del($keys);
+                if (is_int($deleted)) {
+                    $deletedCount += $deleted;
+                }
             }
         } while ($iterator !== 0);
-        return;
+        return $deletedCount;
     }
 
     /**
@@ -238,7 +246,7 @@ class RedisClient
         $iterator = null;
         do {
             $keys = $this->client->scan($iterator, $key, 100);
-            if (!empty($keys)) {
+            if (!empty($keys) && is_array($keys)) {
                 $found_keys = array_merge($found_keys, $keys);
             }
         } while ($iterator !== 0);
