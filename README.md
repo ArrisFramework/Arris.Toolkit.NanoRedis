@@ -16,8 +16,14 @@ Usage
 -----
 
 ```php
-// This will try to connect and throw a RedisClientException if connection failed
-$client = new RedisClient($host, $port, $auth);
+define('REDIS_HOST', 'localhost');
+define('REDIS_PORT', 6379);
+define('REDIS_DATABASE', 0);
+define('REDIS_AUTH', null);
+
+$client = new RedisClient(host: REDIS_HOST, port: REDIS_PORT, enabled: true);
+
+$client->connect(); // не обязательно
 
 // simple get set system
 $client->set('key', 'value');
@@ -25,10 +31,10 @@ $val = $client->get('key');
 
 // this value will be converted into json text into redis
 $client->set('key_array', ['test' => 'test']);
-// returns '{"test":"test"}'
+// сохраняет '{"test":"test"}'
 
 $client->get('key_array');
-// returns ['test' => 'test']
+// возвращает ['test' => 'test']
 $client->get('key_array', true);
 
 // this key will live 120 seconds
@@ -40,6 +46,16 @@ $client->set('key_delete', 'test');
 $client->set('key_delete2', 'test');
 $client->set('key_delete3', 'test');
 $client->delete('key_del*');
+
+// смена БД
+$client->setDatabase(1);
+$client->set('key_1', 1);
+
+$сlient->setDatabase(1);
+var_dump( $client->getDatabase()); // 1
+
+$сlient->flushDatabase(); // flush database 
+
 
 // close connection
 $client->close();

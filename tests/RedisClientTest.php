@@ -64,19 +64,9 @@ class RedisClientTest extends TestCase
     {
         $this->client->set('key_array_fail', 'test');
 
-        $this->expectErrorMessage('Json conversion failed: Syntax error');
+        $this->expectErrorMessage('JSON decode failed: Syntax error');
 
         $this->client->get('key_array_fail', true);
-    }
-
-    public function testGetSetTimeout(): void
-    {
-        $this->client->set('key_timeout', 'test', 2);
-
-        self::assertSame('test', $this->client->get('key_timeout', false));
-
-        sleep(3);
-        self::assertFalse($this->client->get('key_timeout', false));
     }
 
     public function testDelete(): void
@@ -116,5 +106,54 @@ class RedisClientTest extends TestCase
     public function testGetLastError(): void
     {
         self::assertNull($this->client->getLastError());
+    }
+
+    public function testKeys():void
+    {
+        $this->client->flushDatabase();
+        $this->client->set('key_1', 1);
+        $this->client->set('key_2', 1);
+        $this->client->set('key_3', 1);
+
+        self::assertEquals(['key_3', 'key_2', 'key_1'], $this->client->keys('key*'));
+    }
+
+    public function testExists():void
+    {
+        $this->client->flushDatabase();
+        $this->client->set('key_1', 1);
+
+        self::assertTrue($this->client->exists('key_1'));
+        self::assertFalse($this->client->exists('key_2'));
+    }
+
+    public function testIncrBy():void
+    {
+        $this->client->flushDatabase();
+        $this->client->set('key_42', 1000);
+
+        $this->client->incrBy('key_42', 42);
+
+        self::assertEquals(1042, $this->client->get('key_42'));
+    }
+
+    public function testDecrBy():void
+    {
+        $this->client->flushDatabase();
+        $this->client->set('key_42', 1042);
+
+        $this->client->decrBy('key_42', 42);
+
+        self::assertEquals(1000, $this->client->get('key_42'));
+    }
+
+    public function testGetSetTimeout(): void
+    {
+        $this->client->set('key_timeout', 'test', 2);
+
+        self::assertSame('test', $this->client->get('key_timeout', false));
+
+        sleep(3);
+        self::assertFalse($this->client->get('key_timeout', false));
     }
 }
