@@ -55,7 +55,7 @@ class RedisClient implements RedisClientInterface
     private int $jsonFlags = JSON_NUMERIC_CHECK | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES;
 
     /**
-     * Конструктор
+     * Конструктор. Задает параметры.
      *
      * @throws RedisClientException
      */
@@ -74,8 +74,55 @@ class RedisClient implements RedisClientInterface
         $this->database = $database;
         $this->enabled = $enabled;
 
-        // set client
         $this->client = new Redis();
+    }
+
+    /**
+     * Хелпер, устанавливает хост
+     *
+     * @param $host
+     * @return $this
+     */
+    public function setHost($host = null):RedisClient
+    {
+        $this->host = $host !== null ? $host : $this->host;
+        return $this;
+    }
+
+    /**
+     * Хелпер, устанавливает порт
+     *
+     * @param $port
+     * @return $this
+     */
+    public function setPort($port = null):RedisClient
+    {
+        $this->port = $port !== null ? $port : $this->port;
+        return $this;
+    }
+
+    /**
+     * Хелпер, устанавливает БД
+     *
+     * @param $database
+     * @return $this
+     */
+    public function setDatabase($database = null):RedisClient
+    {
+        $this->database = $database !== null ? $database : $this->database;
+        return $this;
+    }
+
+    /**
+     * Хелпер, устанавливает флаг "enabled"
+     *
+     * @param $enabled
+     * @return $this
+     */
+    public function enable($enabled = null):RedisClient
+    {
+        $this->enabled = $enabled !== null ? $enabled : $this->enabled;
+        return $this;
     }
 
     /**
@@ -84,25 +131,14 @@ class RedisClient implements RedisClientInterface
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function connect(string $host = 'localhost', int $port = 6379, ?int $database = 0, bool $enabled = true): bool
+    public function connect($host = null, $port = null, $database = null, $enabled = null): bool
     {
-        $this->host = $host;
-        $this->port = $port;
-        $this->database = $database;
-        $this->enabled = $enabled;
+        $this->host = $host !== null ? $host : $this->host;
+        $this->port = $port !== null ? $port : $this->port;
+        $this->database = $database !== null ? $database : $this->database;
+        $this->enabled = $enabled !== null ? $enabled : $this->enabled;
 
         return $this->tryConnect();
-    }
-
-    /**
-     * Устанавливает флаги JSON-кодирования по-умолчанию
-     *
-     * @param int $flags
-     * @return void
-     */
-    public function setJSONEncodeFlags(int $flags = JSON_NUMERIC_CHECK | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES): void
-    {
-        $this->jsonFlags = $flags;
     }
 
     /**
@@ -137,9 +173,9 @@ class RedisClient implements RedisClientInterface
     /**
      * Устанавливает базу данных
      *
-     * @throws RedisException
+     * @throws RedisException|RedisClientException
      */
-    public function setDatabase(int $database):bool
+    public function useDatabase(int $database):bool
     {
         if (!$this->enabled) {
             return false;
@@ -150,6 +186,10 @@ class RedisClient implements RedisClientInterface
         return $this->client->select($database);
     }
 
+    /**
+     * @throws RedisClientException
+     * @throws RedisException
+     */
     public function getDatabase():int
     {
         if (!$this->enabled) {
@@ -161,6 +201,67 @@ class RedisClient implements RedisClientInterface
         return $this->client->getDbNum();
     }
 
+    /**
+     * Очищает базу полностью
+     *
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function flushDatabase($async = null): bool
+    {
+        if (!$this->enabled) {
+            return false;
+        }
+        $this->tryConnect();
+
+        return $this->client->flushDB($async);
+    }
+
+    /**
+     * set value to Redis.
+     * optional $timeout in seconds.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param int|null $timeout
+     *
+     * @return bool
+     *
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function set(string $key, mixed $value, ?int $timeout = null): bool
+    {
+        if (!$this->enabled) {
+            return false;
+        }
+
+        $this->tryConnect();
+
+        if (is_array($value)) {
+            $value = json_encode($value, flags: $this->jsonFlags);
+        }
+
+        return  null === $timeout
+            ? $this->client->set($key, $value)
+            : $this->client->setex($key, $timeout, $value);
+    }
+
+    /**
+     * Устанавливает таймаут ключа
+     *
+     * @throws RedisException
+     * @throws RedisClientException
+     */
+    public function expire(string $key, int $ttl = 0):bool
+    {
+        if (!$this->enabled) {
+            return false;
+        }
+        $this->tryConnect();
+
+        return $this->client->expire($key, $ttl);
+    }
 
     /**
      * get value from Redis
@@ -191,59 +292,19 @@ class RedisClient implements RedisClientInterface
     }
 
     /**
-     * set value to Redis.
-     * optional $timeout in seconds.
-     *
-     * @param string $key
-     * @param mixed $value
-     * @param int|null $timeout
-     *
-     * @return bool
+     * Проверяет существование ключа
      *
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function set(string $key, mixed $value, ?int $timeout = null): bool
+    public function exists(string $key):bool
     {
         if (!$this->enabled) {
             return false;
         }
-
         $this->tryConnect();
 
-        if (is_array($value)) {
-            $value = json_encode($value, flags: $this->jsonFlags);
-        }
-
-        return  null === $timeout
-                ? $this->client->set($key, $value)
-                : $this->client->setex($key, $timeout, $value);
-    }
-
-    /**
-     * get last Redis error msg.
-     * @throws RedisException|RedisClientException
-     */
-    public function getLastError(): ?string
-    {
-        if (!$this->enabled) {
-            return 'Not connected';
-        }
-
-        $this->tryConnect();
-
-        return $this->client->getLastError();
-    }
-
-    /**
-     * close Redis connection.
-     * @throws RedisException
-     */
-    public function close(): void
-    {
-        if ($this->client->isConnected()) {
-            $this->client->close();
-        }
+        return (bool)$this->client->exists($key);
     }
 
     /**
@@ -306,75 +367,6 @@ class RedisClient implements RedisClientInterface
     }
 
     /**
-     * return Redis client instance
-     *
-     * @param bool $try_connect
-     * @return Redis
-     * @throws RedisClientException
-     * @throws RedisException
-     */
-    public function getClient(bool $try_connect = false): Redis
-    {
-        if (!$this->enabled) {
-            return $this->client;
-        }
-
-        if ($try_connect) {
-            $this->tryConnect();
-        }
-
-        return $this->client;
-    }
-
-    /**
-     * Устанавливает таймаут ключа
-     *
-     * @throws RedisException
-     * @throws RedisClientException
-     */
-    public function expire(string $key, int $ttl = 0):bool
-    {
-        if (!$this->enabled) {
-            return false;
-        }
-        $this->tryConnect();
-
-        return $this->client->expire($key, $ttl);
-    }
-
-    /**
-     * Проверяет существование ключа
-     *
-     * @throws RedisClientException
-     * @throws RedisException
-     */
-    public function exists(string $key):bool
-    {
-        if (!$this->enabled) {
-            return false;
-        }
-        $this->tryConnect();
-
-        return (bool)$this->client->exists($key);
-    }
-
-    /**
-     * Очищает базу полностью
-     *
-     * @throws RedisClientException
-     * @throws RedisException
-     */
-    public function flushDatabase($async = null): bool
-    {
-        if (!$this->enabled) {
-            return false;
-        }
-        $this->tryConnect();
-
-        return $this->client->flushDB($async);
-    }
-
-    /**
      * Увеличивает ключ на N
      *
      * @throws RedisException
@@ -406,5 +398,63 @@ class RedisClient implements RedisClientInterface
         return $this->client->decrBy($key, $value);
     }
 
+    /**
+     * return Redis client instance
+     *
+     * @param bool $try_connect
+     * @return Redis
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function getClient(bool $try_connect = false): Redis
+    {
+        if (!$this->enabled) {
+            return $this->client;
+        }
+
+        if ($try_connect) {
+            $this->tryConnect();
+        }
+
+        return $this->client;
+    }
+
+    /**
+     * get last Redis error msg.
+     *
+     * @throws RedisException|RedisClientException
+     */
+    public function getLastError(): ?string
+    {
+        if (!$this->enabled) {
+            return 'Not connected';
+        }
+
+        $this->tryConnect();
+
+        return $this->client->getLastError();
+    }
+
+    /**
+     * close Redis connection.
+     * @throws RedisException
+     */
+    public function close(): void
+    {
+        if ($this->client->isConnected()) {
+            $this->client->close();
+        }
+    }
+
+    /**
+     * Устанавливает флаги JSON-кодирования по-умолчанию
+     *
+     * @param int $flags
+     * @return void
+     */
+    public function setJSONEncodeFlags(int $flags = JSON_NUMERIC_CHECK | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES): void
+    {
+        $this->jsonFlags = $flags;
+    }
 
 }
