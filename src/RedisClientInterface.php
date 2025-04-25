@@ -24,7 +24,7 @@ interface RedisClientInterface
     public function get(string $key, bool $decodeJSON = true): mixed;
     public function exists(string $key):bool;
 
-    public function delete(string $key): int;
+    public function delete(string $key): array;
 
     public function keys(string $key):array;
 

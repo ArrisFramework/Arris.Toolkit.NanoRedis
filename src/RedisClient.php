@@ -312,16 +312,16 @@ class RedisClient implements RedisClientInterface
      * Удаляет ключи по маске.
      *
      * @param string $key
-     * @return int - кол-во удаленных ключей
+     * @return array - список удаленных ключей
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function delete(string $key): int
+    public function delete(string $key): array
     {
         if (!$this->enabled) {
-            return 0;
+            return [];
         }
-        $deletedCount = 0;
+        $deletedKeys = [];
 
         $this->tryConnect();
 
@@ -329,14 +329,20 @@ class RedisClient implements RedisClientInterface
         do {
             // SCAN возвращает часть ключей и новый курсор
             $keys = $this->client->scan($iterator, $key, 100);
+
             if (!empty($keys)) {
                 $deleted = $this->client->del($keys);
+
                 if (is_int($deleted)) {
-                    $deletedCount += $deleted;
+                    if ($deleted > 0) {
+                        $deletedKeys = array_merge($deletedKeys, $keys);
+                    }
                 }
             }
+
         } while ($iterator !== 0);
-        return $deletedCount;
+
+        return $deletedKeys;
     }
 
     /**
