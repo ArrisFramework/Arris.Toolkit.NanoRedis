@@ -264,6 +264,22 @@ class RedisClient implements RedisClientInterface
     }
 
     /**
+     * Проверяет существование ключа
+     *
+     * @throws RedisClientException
+     * @throws RedisException
+     */
+    public function exists(string $key):bool
+    {
+        if (!$this->enabled) {
+            return false;
+        }
+        $this->tryConnect();
+
+        return (bool)$this->client->exists($key);
+    }
+
+    /**
      * get value from Redis
      * if $isJson=true, try to convert retrieved data to json.
      *
@@ -292,20 +308,69 @@ class RedisClient implements RedisClientInterface
     }
 
     /**
-     * Проверяет существование ключа
+     * @param string $key
+     * @param bool $decodeJSON
+     * @param bool $sortKeys
+     * @return mixed (array of mixed|mixed)
      *
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function exists(string $key):bool
+    public function getMany(string $key, bool $decodeJSON = true, bool $sortKeys = false): mixed
     {
         if (!$this->enabled) {
             return false;
         }
+
         $this->tryConnect();
 
-        return (bool)$this->client->exists($key);
+        // Если ключ содержит символы маскировки (например, *)
+        if (str_contains($key, '*')) {
+            $result = [];
+            $iterator = null;
+
+            do {
+                // SCAN возвращает массив ключей и новый курсор
+                $keys = $this->client->scan($iterator, $key, 100); // 100 - количество элементов за итерацию
+
+                if (!empty($keys)) {
+                    $values = $this->client->mget($keys);
+
+                    foreach ($keys as $i => $k) {
+                        if (false !== $values[$i]) {
+                            $value = $decodeJSON ? json_decode($values[$i], true) : $values[$i];
+
+                            if ($decodeJSON && JSON_ERROR_NONE !== json_last_error()) {
+                                throw new RedisClientException('JSON decode failed: '.json_last_error_msg(), 3000);
+                            }
+
+                            $result[$k] = $value;
+                        }
+                    }
+                }
+            } while ($iterator !== 0); // Курсор 0 означает завершение итерации
+
+            if ($sortKeys) {
+                ksort($result);
+            }
+
+            return $result;
+        }
+
+        // Обычный запрос одного ключа
+        $r = $this->client->get($key);
+
+        if (false !== $r && $decodeJSON) {
+            $r = json_decode($r, true);
+            if (JSON_ERROR_NONE !== json_last_error()) {
+                throw new RedisClientException('JSON decode failed: '.json_last_error_msg(), 3000);
+            }
+        }
+
+        return $r;
     }
+
+
 
     /**
      * Delete redis key(s) by mask.
@@ -352,7 +417,7 @@ class RedisClient implements RedisClientInterface
      * @throws RedisClientException
      * @throws RedisException
      */
-    public function keys(string $key):array
+    public function keys(string $key, $sort_keys = true):array
     {
         if (!$this->enabled) {
             return [];
@@ -368,6 +433,10 @@ class RedisClient implements RedisClientInterface
                 $found_keys = array_merge($found_keys, $keys);
             }
         } while ($iterator !== 0);
+
+        if ($sort_keys) {
+            ksort($found_keys);
+        }
 
         return $found_keys;
     }

@@ -85,7 +85,18 @@ class RedisClientTest extends TestCase
         $this->client->delete('key_del*');
 
         self::assertFalse($this->client->get('key_delete', false));
-        self::assertCount(0, $this->client->keys("key_de*"));
+        self::assertEquals(0, count($this->client->keys("key_de*")));
+    }
+
+    public function testDeletePatternCount(): void
+    {
+        $this->client->set('key_delete', 'test');
+        $this->client->set('key_delete2', 'test');
+        $this->client->set('key_delete3', 'test');
+
+        self::assertCount(3, $this->client->delete('key_del*'));
+
+        $this->client->delete('key_del*');
     }
 
     /**
@@ -115,7 +126,10 @@ class RedisClientTest extends TestCase
         $this->client->set('key_2', 1);
         $this->client->set('key_3', 1);
 
-        self::assertEquals(['key_3', 'key_2', 'key_1'], $this->client->keys('key*'));
+        $keys = $this->client->keys('key*');
+        sort($keys);
+
+        self::assertEquals(['key_1', 'key_2', 'key_3'], $keys);
     }
 
     public function testExists():void
