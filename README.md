@@ -1,6 +1,6 @@
 # RedisClient
 
-Simple class easy to use that wraps Redis extension without dependencies.
+Простой класс, обеспечивающий wrapper над Redis.
 
 Based on https://github.com/mp3000mp/RedisClient
 
@@ -23,7 +23,7 @@ define('REDIS_AUTH', null);
 
 $client = new RedisClient(host: REDIS_HOST, port: REDIS_PORT, enabled: true);
 
-$client->connect(); // не обязательно
+$client->connect(); // необязательно!
 
 // simple get set system
 $client->set('key', 'value');
