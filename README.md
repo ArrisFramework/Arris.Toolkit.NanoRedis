@@ -56,6 +56,15 @@ var_dump( $client->getDatabase()); // 1
 
 $сlient->flushDatabase(); // flush database 
 
+// get Many
+
+$сlient->set('key_1', 1);
+$сlient->set('key_2', 2);
+$сlient->set('key_3', 3);
+$сlient->set('key_4', 4);
+
+var_dump($сlient->getMany('*y_*', sortKeys: true));
+
 
 // close connection
 $client->close();

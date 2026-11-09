@@ -156,14 +156,17 @@ class RedisClient implements RedisClientInterface
         if (!$this->client->isConnected()) {
             try {
                 $this->client->connect($this->host, $this->port);
+
+                // AUTH строго до SELECT: при requirepass любой SELECT (даже 0)
+                // вернёт NOAUTH, если пароль ещё не предъявлен.
+                if (null !== $this->auth && !$this->client->auth($this->auth)) {
+                    throw new RedisClientException('Connection auth failed', 2002);
+                }
+
                 $this->client->select($this->database);
                 $this->is_connected = true;
             } catch (RedisException $e) {
                 throw new RedisClientException($e->getMessage(), 2001);
-            }
-
-            if (null !== $this->auth && !$this->client->auth($this->auth)) {
-                throw new RedisClientException('Connection auth failed', 2002);
             }
         }
 
